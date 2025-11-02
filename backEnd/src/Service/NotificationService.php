@@ -30,7 +30,7 @@ class NotificationService
             $notification->setType('treatment_submitted');
             $notification->setTitle('Nouveau traitement à valider');
             $notification->setMessage(
-                "Le traitement \"{$treatment->getNomTraitement()}\" a été soumis pour validation par {$treatment->getCreatedBy()->getEmail()}"
+                "Le traitement \"{$treatment->getNomTraitement()}\" a été soumis pour validation par {$treatment->getCreatedByDisplay()}"
             );
             $notification->setTreatment($treatment);
             $notification->setData([
@@ -59,6 +59,11 @@ class NotificationService
     {
         $user = $treatment->getCreatedBy();
 
+        // Si l'utilisateur créateur a été supprimé, ne pas envoyer de notification
+        if ($user === null) {
+            return;
+        }
+
         $notification = new Notification();
         $notification->setUser($user);
         $notification->setType('treatment_validated');
@@ -82,10 +87,15 @@ class NotificationService
         );
     }
 
-    
+
     public function notifyTreatmentToModify(Treatment $treatment, string $comment): void
     {
         $user = $treatment->getCreatedBy();
+
+        // Si l'utilisateur créateur a été supprimé, ne pas envoyer de notification
+        if ($user === null) {
+            return;
+        }
 
         $notification = new Notification();
         $notification->setUser($user);
@@ -235,7 +245,7 @@ class NotificationService
                     <h3>Détails du traitement</h3>
                     <p><strong>Nom :</strong> {$treatment->getNomTraitement()}</p>
                     <p><strong>Service :</strong> {$treatment->getService()}</p>
-                    <p><strong>Créé par :</strong> {$treatment->getCreatedBy()->getEmail()}</p>
+                    <p><strong>Créé par :</strong> {$treatment->getCreatedByDisplay()}</p>
                 </div>
                 <div style='text-align: center; margin-top: 30px;'>
                     <a href='http://localhost:3000/dpo/dashboard' 

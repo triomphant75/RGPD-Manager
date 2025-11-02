@@ -607,7 +607,7 @@ class TreatmentController extends AbstractController
             'etatTraitement' => $treatment->getEtatTraitement(),
             'raisonRefus' => $treatment->getRaisonRefus(),
             'dateValidation' => $treatment->getDateValidation()?->format('c'),
-            'createdBy' => $treatment->getCreatedBy()->getEmail(),
+            'createdBy' => $treatment->getCreatedByDisplay(),
             'createdAt' => $treatment->getCreatedAt()->format('c'),
             'updatedAt' => $treatment->getUpdatedAt()->format('c'),
             'dateArchivage' => $treatment->getDateArchivage()?->format('c')
