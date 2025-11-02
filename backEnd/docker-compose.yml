@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: rgpd_postgres
+    environment:
+      POSTGRES_DB: rgpd_manager
+      POSTGRES_USER: rgpd_user
+      POSTGRES_PASSWORD: rgpd_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rgpd_network
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rgpd_php
+    volumes:
+      - ./:/var/www/html
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    networks:
+      - rgpd_network
+    environment:
+      DATABASE_URL: "postgresql://rgpd_user:rgpd_password@postgres:5432/rgpd_manager?serverVersion=15&charset=utf8"
+
+volumes:
+  postgres_data:
+
+networks:
+  rgpd_network:
+    driver: bridge

@@ -1,0 +1,5 @@
+{
+    "require": {
+        "symfony/property-info": "^7.3"
+    }
+}

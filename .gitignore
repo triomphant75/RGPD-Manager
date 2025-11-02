@@ -1,0 +1,143 @@
+# ===================================
+# SaintAgnes 2.0 - RGPD Manager
+# ===================================
+
+# ===================================
+# BACKEND (Symfony)
+# ===================================
+
+# Symfony
+/backEnd/var/
+/backEnd/vendor/
+/backEnd/.env.local
+/backEnd/.env.local.php
+/backEnd/.env.*.local
+/backEnd/config/secrets/prod/prod.decrypt.private.php
+/backEnd/public/bundles/
+
+# JWT Keys (IMPORTANT: Never commit!)
+/backEnd/config/jwt/*.pem
+
+# PHPUnit
+/backEnd/.phpunit.cache
+/backEnd/phpunit.xml
+
+# Composer
+/backEnd/composer.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+/backEnd/var/log/
+*.log
+
+# Cache
+/backEnd/var/cache/
+
+# ===================================
+# FRONTEND (React + Vite)
+# ===================================
+
+# Dependencies
+/frontEnd/node_modules/
+/frontEnd/package-lock.json
+/frontEnd/yarn.lock
+/frontEnd/pnpm-lock.yaml
+
+# Build
+/frontEnd/dist/
+/frontEnd/build/
+
+# Environment
+/frontEnd/.env
+/frontEnd/.env.local
+/frontEnd/.env.development.local
+/frontEnd/.env.test.local
+/frontEnd/.env.production.local
+
+# Vite
+/frontEnd/.vite/
+
+# Logs
+/frontEnd/npm-debug.log*
+/frontEnd/yarn-debug.log*
+/frontEnd/yarn-error.log*
+/frontEnd/pnpm-debug.log*
+
+# Testing
+/frontEnd/coverage/
+
+# ===================================
+# DATABASE
+# ===================================
+
+# Database files (if using SQLite for local dev)
+*.sqlite
+*.db
+
+# Database dumps
+*.sql
+*.dump
+
+# ===================================
+# SECURITY - NEVER COMMIT
+# ===================================
+
+# Credentials
+.env
+.env.local
+.env.*.local
+credentials.json
+secrets.json
+
+# SSL Certificates
+*.pem
+*.key
+*.crt
+*.p12
+
+# ===================================
+# TEMPORARY FILES
+# ===================================
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Upload directories (if any)
+/backEnd/public/uploads/
+/frontEnd/public/uploads/
+
+# ===================================
+# DOCKER (if used)
+# ===================================
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# ===================================
+# MISC
+# ===================================
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
