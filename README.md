@@ -185,7 +185,7 @@ SaintAgnes2.0/
 #### 1. Cloner le repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/triomphant75/RGPD-Manager.git
 cd SaintAgnes2.0
 ```
 
@@ -873,7 +873,7 @@ Exemple : `feat: add data breach incident reporting`
 
 - **Développeur principal** : Triomphant Aldi NZIKOU
 - **Email** : triomphantaldi@gmail.com
-- **Projet GitHub** : [URL du repository]
+- **Projet GitHub** : https://github.com/triomphant75/RGPD-Manager.git
 
 ### Problèmes Connus
 
