@@ -142,15 +142,31 @@ export const TreatmentDetail: React.FC<TreatmentDetailProps> = ({
             </Button>
           )}
 
-          {/* Bouton Modifier (pas pour les traitements archivés) */}
-          {treatment.etatTraitement !== 'Archivé' && 
-          treatment.etatTraitement !== 'Validé' &&
-          treatment.etatTraitement !== 'En validation' && (
-            <Button onClick={onEdit}>
-              <i className="bi bi-pencil mr-2"></i>
-              Modifier
-            </Button>
-          )}
+          {/* Bouton Modifier - RGPD: Seulement le propriétaire ou admin */}
+          {(() => {
+            // Ne pas afficher pour les traitements archivés, validés ou en validation
+            if (treatment.etatTraitement === 'Archivé' ||
+                treatment.etatTraitement === 'Validé' ||
+                treatment.etatTraitement === 'En validation') {
+              return null;
+            }
+
+            // SÉCURITÉ RGPD: Seul le propriétaire du traitement ou un admin peut modifier
+            // Le DPO ne peut PAS modifier directement (seulement valider/refuser/demander modif)
+            const isOwner = treatment.createdBy === user?.email;
+            const isAdmin = user?.role === 'admin';
+
+            if (!isOwner && !isAdmin) {
+              return null;
+            }
+
+            return (
+              <Button onClick={onEdit}>
+                <i className="bi bi-pencil mr-2"></i>
+                Modifier
+              </Button>
+            );
+          })()}
           </div>
         </div>
 

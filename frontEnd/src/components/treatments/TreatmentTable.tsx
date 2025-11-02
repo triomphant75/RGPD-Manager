@@ -203,57 +203,24 @@ export const TreatmentTable: React.FC<TreatmentTableProps> = ({
                       <i className="bi bi-eye"></i>
                     </Button>
 
-                    {/* Bouton Modifier - Conditions spécifiques */}
+                    {/* Bouton Modifier - Admin OU propriétaire du traitement */}
                     {(() => {
-
-                       if (treatment.etatTraitement === 'Archivé') {
+                       // Ne pas afficher si archivé, validé ou en validation
+                       if (treatment.etatTraitement === 'Archivé' ||
+                           treatment.etatTraitement === 'Validé' ||
+                           treatment.etatTraitement === 'En validation') {
                           return null;
                         }
 
-                      // Admin peut tout modifier
-                      if (user?.role === 'admin') {
-                        return (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => onEdit(treatment)}
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </Button>
-                        );
-                      }
+                      // SÉCURITÉ RGPD:
+                      // - Admin: peut modifier tous les traitements
+                      // - Utilisateur normal: peut modifier UNIQUEMENT ses propres traitements
+                      // - DPO: ne peut PAS modifier (seulement valider/refuser/demander modif)
 
-                      // DPO peut modifier n'importe quel traitement
-                      if (user?.role === 'dpo') {
-                        return (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => onEdit(treatment)}
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </Button>
-                        );
-                      }
-
-                      // Utilisateur normal peut modifier SEULEMENT ses propres traitements
-                      // ET SEULEMENT si l'état est Brouillon ou A modifier
+                      const isAdmin = user?.role === 'admin';
                       const isOwner = treatment.createdBy === user?.email;
-                      const canEdit = treatment.etatTraitement === 'Brouillon' || 
-                                      treatment.etatTraitement === 'A modifier';
 
-                      console.log('🔍 Vérification édition:', {
-                        treatmentId: treatment.id,
-                        treatmentName: treatment.nomTraitement,
-                        createdBy: treatment.createdBy,
-                        currentUser: user?.email,
-                        isOwner,
-                        etatTraitement: treatment.etatTraitement,
-                        canEdit,
-                        finalDecision: isOwner && canEdit
-                      });
-
-                      if (isOwner && canEdit) {
+                      if (isAdmin || isOwner) {
                         return (
                           <Button
                             size="sm"
