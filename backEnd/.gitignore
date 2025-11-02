@@ -1,5 +1,6 @@
 
 ###> symfony/framework-bundle ###
+/.env
 /.env.local
 /.env.local.php
 /.env.*.local
@@ -22,3 +23,13 @@
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
 ###< lexik/jwt-authentication-bundle ###
+
+###> SÉCURITÉ - Fichiers sensibles ###
+# Ne JAMAIS committer ces fichiers
+.env.prod
+.env.dev
+.env.test
+*.pem
+*.key
+*.crt
+###< SÉCURITÉ - Fichiers sensibles ###

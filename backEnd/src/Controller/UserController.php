@@ -46,6 +46,16 @@ class UserController extends AbstractController
             return $this->json(['error' => 'Utilisateur non trouvé'], Response::HTTP_NOT_FOUND);
         }
 
+        // SÉCURITÉ: Les utilisateurs ne peuvent voir que leur propre profil, sauf les admins
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        if ($user->getId() !== $currentUser->getId() && !in_array('ROLE_ADMIN', $currentUser->getRoles())) {
+            return $this->json([
+                'error' => 'Accès refusé',
+                'message' => 'Vous ne pouvez consulter que votre propre profil'
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         return $this->json($this->formatUserResponse($user));
     }
 
@@ -61,6 +71,15 @@ class UserController extends AbstractController
             );
         }
 
+        // SÉCURITÉ: Valider la force du mot de passe
+        $passwordErrors = $this->validatePasswordStrength($data['password']);
+        if (!empty($passwordErrors)) {
+            return $this->json([
+                'error' => 'Le mot de passe ne respecte pas les exigences de sécurité',
+                'details' => $passwordErrors
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
         if ($existingUser) {
             return $this->json(
@@ -71,7 +90,7 @@ class UserController extends AbstractController
 
         $user = new User();
         $user->setEmail($data['email']);
-        
+
         $hashedPassword = $this->passwordHasher->hashPassword($user, $data['password']);
         $user->setPassword($hashedPassword);
 
@@ -221,6 +240,42 @@ class UserController extends AbstractController
         $preview['deletion_blocked_reason'] = $canDelete['reason'];
 
         return $this->json($preview);
+    }
+
+    /**
+     * Valide la force du mot de passe selon les critères de sécurité
+     */
+    private function validatePasswordStrength(string $password): array
+    {
+        $errors = [];
+
+        if (strlen($password) < 12) {
+            $errors[] = "Le mot de passe doit contenir au moins 12 caractères";
+        }
+
+        if (!preg_match('/[A-Z]/', $password)) {
+            $errors[] = "Le mot de passe doit contenir au moins une majuscule";
+        }
+
+        if (!preg_match('/[a-z]/', $password)) {
+            $errors[] = "Le mot de passe doit contenir au moins une minuscule";
+        }
+
+        if (!preg_match('/[0-9]/', $password)) {
+            $errors[] = "Le mot de passe doit contenir au moins un chiffre";
+        }
+
+        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            $errors[] = "Le mot de passe doit contenir au moins un caractère spécial";
+        }
+
+        // Vérifier si le mot de passe est dans une liste de mots de passe courants
+        $commonPasswords = ['Password123!', 'Admin123!', 'Welcome123!', 'Azerty123!'];
+        if (in_array($password, $commonPasswords)) {
+            $errors[] = "Ce mot de passe est trop commun";
+        }
+
+        return $errors;
     }
 
     private function formatUserResponse(User $user): array

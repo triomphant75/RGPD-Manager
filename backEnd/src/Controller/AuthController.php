@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Service\LoginAttemptHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,17 +21,35 @@ class AuthController extends AbstractController
         private EntityManagerInterface $entityManager,
         private UserPasswordHasherInterface $passwordHasher,
         private JWTTokenManagerInterface $jwtManager,
-        private UserRepository $userRepository
+        private UserRepository $userRepository,
+        private LoginAttemptHandler $loginAttemptHandler
     ) {}
 
-    //  ROUTE DE CONNEXION
+    //  ROUTE D'INSCRIPTION - DÉSACTIVÉE (Utiliser UserController pour créer des utilisateurs)
     #[Route('/register', name: 'api_auth_register', methods: ['POST'])]
     public function register(Request $request): JsonResponse
     {
+        // SÉCURITÉ: L'inscription publique est désactivée pour éviter l'escalade de privilèges
+        // Seuls les administrateurs peuvent créer des utilisateurs via /api/users
+        return $this->json([
+            'error' => 'Public registration is disabled',
+            'message' => 'Please contact an administrator to create an account'
+        ], Response::HTTP_FORBIDDEN);
+
+        /* CODE ORIGINAL DÉSACTIVÉ POUR SÉCURITÉ
         $data = json_decode($request->getContent(), true);
 
         if (!isset($data['email']) || !isset($data['password'])) {
             return $this->json(['error' => 'Email et mot de passe requis'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Valider la force du mot de passe
+        $passwordErrors = $this->validatePasswordStrength($data['password']);
+        if (!empty($passwordErrors)) {
+            return $this->json([
+                'error' => 'Password does not meet requirements',
+                'details' => $passwordErrors
+            ], Response::HTTP_BAD_REQUEST);
         }
 
         $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
@@ -40,20 +59,12 @@ class AuthController extends AbstractController
 
         $user = new User();
         $user->setEmail($data['email']);
-        
+
         $hashedPassword = $this->passwordHasher->hashPassword($user, $data['password']);
         $user->setPassword($hashedPassword);
 
-        // Gestion de tous les rôles
-        $roles = ['ROLE_USER'];
-        if (isset($data['role'])) {
-            if ($data['role'] === 'admin') {
-                $roles[] = 'ROLE_ADMIN';
-            } elseif ($data['role'] === 'dpo') {
-                $roles[] = 'ROLE_DPO';
-            }
-        }
-        $user->setRoles($roles);
+        // SÉCURITÉ: Toujours définir ROLE_USER uniquement, jamais accepter role de la requête
+        $user->setRoles(['ROLE_USER']);
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();
@@ -64,11 +75,12 @@ class AuthController extends AbstractController
             'user' => [
                 'id' => $user->getId(),
                 'email' => $user->getEmail(),
-                'role' => $this->getUserRole($user), // 🔥 UTILISATION DE LA NOUVELLE MÉTHODE
+                'role' => $this->getUserRole($user),
                 'createdAt' => $user->getCreatedAt()->format('c')
             ],
             'token' => $token
         ], Response::HTTP_CREATED);
+        */
     }
 
     //  ROUTE DE CONNEXION
@@ -81,11 +93,33 @@ class AuthController extends AbstractController
             return $this->json(['error' => 'Email et mot de passe requis'], Response::HTTP_BAD_REQUEST);
         }
 
-        $user = $this->userRepository->findOneBy(['email' => $data['email']]);
-        
-        if (!$user || !$this->passwordHasher->isPasswordValid($user, $data['password'])) {
-            return $this->json(['error' => 'Identifiants invalides'], Response::HTTP_UNAUTHORIZED);
+        // SÉCURITÉ: Vérifier si l'utilisateur est bloqué suite à trop de tentatives échouées
+        if ($this->loginAttemptHandler->isBlocked($data['email'])) {
+            $remainingTime = $this->loginAttemptHandler->getLockoutTimeRemaining($data['email']);
+            $minutes = ceil($remainingTime / 60);
+
+            return $this->json([
+                'error' => 'Trop de tentatives de connexion échouées',
+                'message' => "Compte temporairement verrouillé. Réessayez dans {$minutes} minute(s).",
+                'lockout_remaining_seconds' => $remainingTime
+            ], Response::HTTP_TOO_MANY_REQUESTS);
         }
+
+        $user = $this->userRepository->findOneBy(['email' => $data['email']]);
+
+        if (!$user || !$this->passwordHasher->isPasswordValid($user, $data['password'])) {
+            // SÉCURITÉ: Enregistrer la tentative échouée
+            $this->loginAttemptHandler->recordAttempt($data['email']);
+            $remainingAttempts = $this->loginAttemptHandler->getRemainingAttempts($data['email']);
+
+            return $this->json([
+                'error' => 'Identifiants invalides',
+                'remaining_attempts' => $remainingAttempts
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // SÉCURITÉ: Connexion réussie, réinitialiser les tentatives
+        $this->loginAttemptHandler->resetAttempts($data['email']);
 
         $token = $this->jwtManager->create($user);
 
@@ -93,7 +127,7 @@ class AuthController extends AbstractController
             'user' => [
                 'id' => $user->getId(),
                 'email' => $user->getEmail(),
-                'role' => $this->getUserRole($user), // 🔥 UTILISATION DE LA NOUVELLE MÉTHODE
+                'role' => $this->getUserRole($user),
                 'createdAt' => $user->getCreatedAt()->format('c')
             ],
             'token' => $token

@@ -1,19 +1,39 @@
-# config/packages/nelmio_cors.yaml (Production)
-nelmio_cors:
-    defaults:
-        origin_regex: true
-        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
-        allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
-        allow_headers: ['Content-Type', 'Authorization']
-        expose_headers: ['Link']
-        max_age: 3600
-    paths:
-        '^/api/':
-            allow_origin: [
-                '^https://votre-domaine\.com$',
-                '^http://localhost:5173$',
-                '^http://localhost:3000$'
-            ]
+# config/packages/nelmio_cors.yaml
+when@dev:
+    nelmio_cors:
+        defaults:
+            origin_regex: true
+            allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+            allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
             allow_headers: ['Content-Type', 'Authorization']
-            allow_methods: ['POST', 'PUT', 'GET', 'DELETE', 'OPTIONS']
+            expose_headers: ['Link']
             max_age: 3600
+        paths:
+            '^/api/':
+                allow_origin: [
+                    '^http://localhost:5173$',
+                    '^http://localhost:3000$',
+                    '^http://127\.0\.0\.1:5173$',
+                    '^http://127\.0\.0\.1:3000$'
+                ]
+                allow_headers: ['Content-Type', 'Authorization']
+                allow_methods: ['POST', 'PUT', 'GET', 'DELETE', 'OPTIONS']
+                max_age: 3600
+
+when@prod:
+    nelmio_cors:
+        defaults:
+            origin_regex: false
+            allow_origin: []
+            allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
+            allow_headers: ['Content-Type', 'Authorization']
+            expose_headers: ['Link']
+            max_age: 3600
+        paths:
+            '^/api/':
+                # SÉCURITÉ: En production, n'autoriser QUE le domaine frontend réel
+                # Configurer FRONTEND_URL dans .env.prod avec votre domaine
+                allow_origin: ['%env(FRONTEND_URL)%']
+                allow_headers: ['Content-Type', 'Authorization']
+                allow_methods: ['POST', 'PUT', 'GET', 'DELETE', 'OPTIONS']
+                max_age: 3600

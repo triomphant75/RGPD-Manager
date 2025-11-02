@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Treatment;
+use App\Entity\User;
 use App\Repository\TreatmentRepository;
 use App\Service\AuditLogger;
 use App\Service\NotificationService;
@@ -101,12 +102,35 @@ class TreatmentController extends AbstractController
             return $this->json(['error' => 'Traitement non trouvé'], Response::HTTP_NOT_FOUND);
         }
 
+        // SÉCURITÉ: Vérifier l'autorisation d'accès
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $canView = $treatment->getCreatedBy() === $currentUser
+            || in_array('ROLE_DPO', $currentUser->getRoles())
+            || in_array('ROLE_ADMIN', $currentUser->getRoles());
+
+        if (!$canView) {
+            $auditLogger->logDataAccess(
+                'VIEW_DENIED',
+                'Treatment',
+                $id,
+                [
+                    'treatment_name' => $treatment->getNomTraitement(),
+                    'reason' => 'User not authorized'
+                ]
+            );
+            return $this->json([
+                'error' => 'Accès refusé',
+                'message' => 'Vous n\'êtes pas autorisé à consulter ce traitement'
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         // Log de l'accès au traitement
-          $auditLogger->logDataAccess(
-        'VIEW',
-        'Treatment',
-        $id,
-        ['treatment_name' => $treatment->getNomTraitement()]
+        $auditLogger->logDataAccess(
+            'VIEW',
+            'Treatment',
+            $id,
+            ['treatment_name' => $treatment->getNomTraitement()]
         );
 
         return $this->json($this->formatTreatmentResponse($treatment));
@@ -182,12 +206,23 @@ class TreatmentController extends AbstractController
     {
         error_log('========== MISE À JOUR DE TRAITEMENT ==========');
         error_log("📝 ID du traitement: {$id}");
-        
+
         $treatment = $this->treatmentRepository->find($id);
 
         if (!$treatment) {
             error_log("❌ Traitement ID {$id} non trouvé");
             return $this->json(['error' => 'Traitement non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        // SÉCURITÉ: Vérifier que l'utilisateur est le propriétaire du traitement
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        if ($treatment->getCreatedBy() !== $currentUser && !in_array('ROLE_ADMIN', $currentUser->getRoles())) {
+            error_log('❌ Tentative de modification non autorisée par utilisateur ID: ' . $currentUser->getId());
+            return $this->json([
+                'error' => 'Accès refusé',
+                'message' => 'Vous ne pouvez modifier que vos propres traitements'
+            ], Response::HTTP_FORBIDDEN);
         }
 
         if ($treatment->getEtatTraitement() === 'Archivé') {
@@ -257,7 +292,7 @@ class TreatmentController extends AbstractController
     {
         error_log('========== SOUMISSION AU DPO ==========');
         error_log('🔍 ID reçu: ' . $id);
-        
+
         try {
             $treatment = $this->treatmentRepository->find($id);
 
@@ -266,11 +301,22 @@ class TreatmentController extends AbstractController
                 return $this->json(['error' => 'Traitement non trouvé'], Response::HTTP_NOT_FOUND);
             }
 
+            // SÉCURITÉ: Vérifier que l'utilisateur est le propriétaire du traitement
+            /** @var User $currentUser */
+            $currentUser = $this->getUser();
+            if ($treatment->getCreatedBy() !== $currentUser && !in_array('ROLE_ADMIN', $currentUser->getRoles())) {
+                error_log('❌ Tentative de soumission non autorisée par utilisateur ID: ' . $currentUser->getId());
+                return $this->json([
+                    'error' => 'Accès refusé',
+                    'message' => 'Vous ne pouvez soumettre que vos propres traitements'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             error_log('✅ Traitement trouvé: ' . $treatment->getNomTraitement());
             error_log('📋 État actuel: ' . $treatment->getEtatTraitement());
 
             // ✅ MODIFICATION : Retrait de "Refusé" - seuls Brouillon et A modifier peuvent être soumis
-            if ($treatment->getEtatTraitement() !== 'Brouillon' && 
+            if ($treatment->getEtatTraitement() !== 'Brouillon' &&
                 $treatment->getEtatTraitement() !== 'A modifier') {
                 error_log('❌ État invalide pour soumission: ' . $treatment->getEtatTraitement());
                 return $this->json(
@@ -282,13 +328,13 @@ class TreatmentController extends AbstractController
             error_log('🔄 Changement d\'état vers "En validation"...');
             $treatment->setEtatTraitement('En validation');
             $treatment->setUpdatedAt(new \DateTimeImmutable());
-            
+
             error_log('💾 Flush du traitement...');
             $this->entityManager->flush();
             error_log('✅ État changé en "En validation"');
 
             error_log('🔔 Appel du NotificationService->notifyTreatmentSubmitted()...');
-            
+
             try {
                 $this->notificationService->notifyTreatmentSubmitted($treatment);
                 error_log('✅ NotificationService terminé avec succès');
@@ -304,16 +350,25 @@ class TreatmentController extends AbstractController
                 'message' => 'Traitement soumis à validation',
                 'treatment' => $this->formatTreatmentResponse($treatment)
             ]);
-            
+
         } catch (\Exception $e) {
             error_log('❌ ERREUR CRITIQUE GLOBALE: ' . $e->getMessage());
             error_log('📍 Fichier: ' . $e->getFile() . ' Ligne: ' . $e->getLine());
-            
+
+            // SÉCURITÉ: Ne pas exposer les détails en production
+            if ($this->getParameter('kernel.environment') === 'dev') {
+                return $this->json([
+                    'error' => 'Erreur serveur',
+                    'debug' => [
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine()
+                    ]
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
             return $this->json([
-                'error' => 'Erreur serveur',
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => 'Une erreur est survenue. Veuillez réessayer plus tard.'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
